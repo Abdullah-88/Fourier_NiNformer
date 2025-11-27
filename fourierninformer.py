@@ -19,7 +19,7 @@ class FeedForward(nn.Module):
         return self.net(x)
 
 
-class FourierFFTLayer(nn.Module):
+class FFTLayer(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -28,41 +28,17 @@ class FourierFFTLayer(nn.Module):
         return torch.fft.fft(torch.fft.fft(hidden_states.float(), dim=-1), dim=-2).real
 
 
-class FNetLayer(nn.Module):
-    def __init__(self,dim,hidden_dim, dropout ):
-        super().__init__()
-        self.fft =  FourierFFTLayer()
-        self.mixing_layer_norm = nn.LayerNorm(dim)
-        self.feed_forward = nn.Linear(dim, hidden_dim)
-        self.output_dense = nn.Linear(hidden_dim, dim)
-        self.output_layer_norm = nn.LayerNorm(dim)
-        self.dropout = nn.Dropout(dropout)
-        self.activation = nn.GELU()
-
-    def forward(self, hidden_states):
-        fft_output = self.fft(hidden_states)
-        fft_output = self.mixing_layer_norm(fft_output + hidden_states)
-        intermediate_output = self.feed_forward(fft_output)
-        intermediate_output = self.activation(intermediate_output)
-        output = self.output_dense(intermediate_output)
-        output = self.dropout(output)
-        output = self.output_layer_norm(output + fft_output)
-        return output
-
-
-
-
 class FourierGatingUnit(nn.Module):
     def __init__(self,dim, hidden_dim, dropout):
         super().__init__()
         self.proj = nn.Linear(dim,dim)      
-        self.Fnet = FNetLayer(dim, hidden_dim, dropout)
+        self.fft = FFTLayer()
        
 
     def forward(self, x):
         u, v = x, x 
         u = self.proj(u)   
-        v = self.Fnet(v)
+        v = self.fft(v)
         out = u * v
         return out
 
